@@ -23,11 +23,11 @@ You are auditing **2 hours of production logs across three surfaces** for **Beto
 The goal is to understand **trends**, **billing impact**, and **post-deploy health** - not to triage a live fire (use `/website-logs-10m` for that).
 
 **Hardcoded coordinates (never prompt):**
-- Vercel `projectId`: `prj_4jL6tTaDtN3uo339kSu3XCvcS8vE`
-- Vercel `teamId`: `team_Y4Oz01XhgpTFPDVclHoY5GwL`
+- Vercel `projectId`: `<VERCEL_PROJECT_ID>`
+- Vercel `teamId`: `<VERCEL_TEAM_ID>`
 - Sentry `organizationSlug`: `betonkemon`
 - Sentry `projectSlug`: `javascript-nextjs`
-- Supabase `project_id`: `hasfagvyjbchoprrwgaj`
+- Supabase `project_id`: `<SUPABASE_PROJECT_REF>`
 
 ---
 
@@ -105,7 +105,7 @@ Steady-vs-spike: if errors-10m hits 100 → ≥10 errors/min sustained → 🔴 
 
 ### Group F: Supabase - data layer over 2h
 22. `mcp__supabase__get_logs` - `service: "postgres"` - slow queries, statement_timeout cancellations
-23. `mcp__supabase__execute_sql` - `select date_trunc('minute', terminated_at) bucket, count(*) from public.wedged_backend_log where terminated_at > now() - interval '2 hours' group by 1 order by 1 desc;` - Supavisor backend kills by minute (proxy for slot starvation rate). **NOTE:** Supabase MCP `get_logs` does not expose pooler logs (`service` only accepts `api | branch-action | postgres | edge-function | auth | storage | realtime`). For `EMAXCONN` strings, search Vercel logs (`query: "EMAXCONN"`) - the postgres.js client throws it server-side, so it surfaces in serverless function logs.
+23. `mcp__supabase__execute_sql` - `select date_trunc('minute', terminated_at) bucket, count(*) from <wedged-log-table> where terminated_at > now() - interval '2 hours' group by 1 order by 1 desc;` - Supavisor backend kills by minute (proxy for slot starvation rate). **NOTE:** Supabase MCP `get_logs` does not expose pooler logs (`service` only accepts `api | branch-action | postgres | edge-function | auth | storage | realtime`). For `EMAXCONN` strings, search Vercel logs (`query: "EMAXCONN"`) - the postgres.js client throws it server-side, so it surfaces in serverless function logs.
 24. `mcp__supabase__get_logs` - `service: "api"` - PostgREST errors
 25. `mcp__supabase__execute_sql` - `select query, calls, mean_exec_time, max_exec_time, total_exec_time from pg_stat_statements where calls > 100 order by total_exec_time desc limit 15;` - billing-relevant: total time = compute spend
 26. `mcp__supabase__execute_sql` - `select count(*), state, application_name from pg_stat_activity group by 2,3 order by 1 desc;` - current slot usage
@@ -295,7 +295,7 @@ When you see clustered `Vercel Runtime Timeout` 504s across unrelated paths AND 
 1. **`pg_stat_statements`** via Supabase MCP — pull mean_exec_time, max_exec_time, calls for the suspect query. If max < 10s comfortably, SQL is exonerated. (Reference: 2026-05-08 storm — search query mean=5.98ms, max=232ms across 449K calls.)
 2. **`show max_connections;`** — verify the actual ceiling. Don't trust prior CLAUDE.md memory; the project may have migrated tiers.
 3. **`select application_name, count(*) from pg_stat_activity group by application_name`** — see who reserves slots. Storage API + postgrest + pg_cron + mgmt-api typically take 30-40 of the cap, leaving the remainder for app traffic.
-4. **`select * from public.wedged_backend_log where terminated_at > now() - interval '30 minutes';`** via Supabase MCP `execute_sql` - the `cleanup-wedged-supavisor-backends` pg_cron audit. Cluster of recent terminations indicates pool saturation. For `EMAXCONN` strings (postgres.js client-side surrender) search Vercel logs `query: "EMAXCONN"`. The Supabase MCP does NOT expose pooler/Supavisor logs directly (`service` accepts only `api | branch-action | postgres | edge-function | auth | storage | realtime`).
+4. **`select * from <wedged-log-table> where terminated_at > now() - interval '30 minutes';`** via Supabase MCP `execute_sql` - the `<wedged-cleanup-cron>` pg_cron audit. Cluster of recent terminations indicates pool saturation. For `EMAXCONN` strings (postgres.js client-side surrender) search Vercel logs `query: "EMAXCONN"`. The Supabase MCP does NOT expose pooler/Supavisor logs directly (`service` accepts only `api | branch-action | postgres | edge-function | auth | storage | realtime`).
 5. **Supabase usage dashboard** (`mcp__supabase__get_project`) — if egress is over quota, throttling produces symptoms identical to pool exhaustion. Check before blaming postgres.js.
 6. **Vercel logs filtered to a single request_id** — pull one truncated 504, look for ANY upstream error in the body. Usually empty (lambda killed mid-wait).
 
@@ -317,7 +317,7 @@ Fix priority when this fires:
 - **Vercel billing data lags 3-5 days.** A spike caught in the 2h window will not show up in this month's invoice number for days. Don't tell the user "this is costing you $X right now" based on today's invoice line - tell them the projected rate, and note the lag.
 - **All MCP timestamps come back UTC; convert to BDT (+6) before presenting.** Already covered in cardinal rule 0; restating because trend tables and "first-seen release" rows are where mixed UTC/BDT bleeds in most often.
 - **Sentry's `events grouped by release` query relies on releases actually being created.** If `SENTRY_RELEASE` injection broke on a deploy, all events from that window tag as `unknown`, producing a misleading "regression in release X" reading. Cross-check by listing recent releases via `mcp__sentry__find_releases` before drawing release conclusions.
-- **`pg_stat_activity` is a point-in-time snapshot.** A single read can miss a transient pile-up that fired and cleared between calls. For 2h trend claims about slot pressure, rely on `wedged_backend_log` (the pg_cron audit), not a single `pg_stat_activity` sample.
+- **`pg_stat_activity` is a point-in-time snapshot.** A single read can miss a transient pile-up that fired and cleared between calls. For 2h trend claims about slot pressure, rely on `<wedged-log-table>` (the pg_cron audit), not a single `pg_stat_activity` sample.
 
 ## Ask at forks
 

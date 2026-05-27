@@ -38,16 +38,16 @@ Vercel (no MCP for billing yet, so dashboard URLs):
 
 | Metric | Where |
 | --- | --- |
-| Edge requests (last 7d, 30d) | <https://vercel.com/ishmam156s-projects/beton-kemon-12345/observability> |
+| Edge requests (last 7d, 30d) | <https://vercel.com/<vercel-team-slug>/<vercel-project-slug>/observability> |
 | Function invocations + duration | same |
 | Function error % + timeout % | same |
 | Active CPU hours | same |
 | Fast Data Transfer (egress) | same |
-| Cache hit rate per route | <https://vercel.com/ishmam156s-projects/beton-kemon-12345/cache> |
+| Cache hit rate per route | <https://vercel.com/<vercel-team-slug>/<vercel-project-slug>/cache> |
 
 Ask the user to capture screenshots OR paste the headline numbers if MCP can't reach the dashboard. The Vercel MCP `mcp__vercel__list_deployments`, `get_deployment`, `get_runtime_logs` give you traffic shape but not billing.
 
-Supabase via MCP (`project_id: hasfagvyjbchoprrwgaj`):
+Supabase via MCP (`project_id: <SUPABASE_PROJECT_REF>`):
 
 ```sql
 -- Connection state
@@ -67,7 +67,7 @@ select schemaname, sum(pg_relation_size(schemaname || '.' || tablename))::bigint
 from pg_tables where schemaname = 'public' group by schemaname;
 ```
 
-Plus: <https://supabase.com/dashboard/project/hasfagvyjbchoprrwgaj/reports/database> for the egress chart (free tier 5GB/mo, Pro 250GB).
+Plus: <https://supabase.com/dashboard/project/<SUPABASE_PROJECT_REF>/reports/database> for the egress chart (free tier 5GB/mo, Pro 250GB).
 
 Resend, Anthropic (if any), Sentry: pull from each provider's dashboard. The user attaches numbers if MCP doesn't reach.
 

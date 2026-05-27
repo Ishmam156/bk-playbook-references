@@ -77,7 +77,7 @@ Before forming any hypothesis, walk the symptom against the project's hard rules
 
 For the loaded slice, check the relevant invariants:
 
-- **Aggregates / counts off** -> `>=5 hardgate` (ADR-0004). Below threshold deliberately shows locked-preview empty state. Is the count "wrong" because the company has fewer than 5 approved entries?
+- **Aggregates / counts off** -> `minimum-sample hardgate` (ADR-0004). Below threshold deliberately shows locked-preview empty state. Is the count "wrong" because the company has fewer than 5 approved entries?
 - **Submit double-counts or under-counts** -> `/api/submit` idempotency + transactional aggregate recompute (`src/lib/aggregate.ts`, `sql.begin(tx)`). Is the recompute partial? Is the idempotency key derivation correct?
 - **Admin action's effect doesn't appear** -> `revalidatePath("/admin/queue")` is sync; cross-page invalidations via `after()` (ADR-0005). Did the action call `updateTag(LANDING_CACHE_TAG)`? Is the change wrapped in `unstable_cache` and waiting on tag invalidation?
 - **504 / timeout / "feels slow"** -> pool max=5 (ADR-0006), DB statement_timeout=10s. If acute, switch to `/incident`. If consistent on one query, look at `pg_stat_statements`.
@@ -126,7 +126,7 @@ Run verifications one at a time. After each, state the verdict explicitly:
 Use the right tool:
 
 - **File reads** for "is this code path doing X" -> Read tool
-- **SQL** for "what does the data actually look like" -> Supabase MCP `execute_sql` (project_id `hasfagvyjbchoprrwgaj`)
+- **SQL** for "what does the data actually look like" -> Supabase MCP `execute_sql` (project_id `<SUPABASE_PROJECT_REF>`)
 - **Runtime logs** for "did this happen in production and what was the stack" -> `/website-logs-10m` or `/website-logs-2h`, or Sentry MCP directly (`search_issues`, `search_events`)
 - **Vercel build / deploy state** -> Vercel MCP (`get_deployment`, `get_deployment_build_logs`)
 - **Live page state** -> Playwright MCP (`browser_navigate`, `browser_snapshot`, `browser_network_requests`). Production HTML 429s curl - always Playwright for prod URLs.

@@ -203,12 +203,12 @@ Submit triggers `POST /api/submit` with the assembled payload + the Cloudflare T
 
 **Pre-checks (in order):**
 
-1. **Cookie soft rate limit** (ADR-0008): cookie `bk_sub_count`, **3 submissions per 24 hours per browser** (`route.ts:15-17`, `:85-89`). HttpOnly, Secure (production), SameSite=Lax, 24h TTL. Returns `429 { error: "rate_limited" }`. Counter increments only on success (`:274-280`). Soft cap by design - private browsing or cookie clear bypasses; that's acceptable per ADR-0003.
-2. **Turnstile verification** (`src/lib/turnstile.ts`): if `TURNSTILE_SECRET_KEY` is unset -> short-circuit pass (test environments). Otherwise verify with Cloudflare; returns `403 { error: "turnstile_failed" }` on failure. When the E2E suite is rebuilt (`tasks/open/009-expand-e2e-coverage.md`), wire Cloudflare's published always-pass test pair (`1x00000000000000000000AA` / `1x0000000000000000000000000000000AA`) so the browser never hits a real challenge.
+1. **Cookie soft rate limit** (ADR-0008): a cookie tracks per-browser submission count over a sliding window. HttpOnly, Secure (production), SameSite=Lax. Returns `429 { error: "rate_limited" }` over the cap. Counter increments only on success. Cap value, TTL, and cookie name intentionally redacted from the public mirror.
+2. **Turnstile verification** (`src/lib/turnstile.ts`): if `TURNSTILE_SECRET_KEY` is unset -> short-circuit pass (test environments). Otherwise verify with Cloudflare; returns `403 { error: "turnstile_failed" }` on failure. When the E2E suite is rebuilt (`tasks/open/009-expand-e2e-coverage.md`), wire Cloudflare's published always-pass test keys so the browser never hits a real challenge.
 3. **JSON shape + field validation** (`route.ts:97-143`):
-   - Required: `role_freetext`, `role_start_year`, `monthly_salary_bdt`, `disbursement_day`, `idempotency_key` (must match `^[a-zA-Z0-9_-]{8,128}$`), `delayed_last_year`.
+   - Required: `role_freetext`, `role_start_year`, `monthly_salary_bdt`, `disbursement_day`, `idempotency_key` (opaque client-generated key), `delayed_last_year`.
    - Required `company_id` OR `company_name`.
-   - Salary >= 4,000 (`salary_too_low`).
+   - Salary above an implausibly-low floor (`salary_too_low`).
    - Benefit sub-field constraints as described in step 7.
    - Failures return `400` with one of: `invalid_json`, `invalid_fields`, `missing_company`, `invalid_benefits`, `salary_too_low`.
 
@@ -220,18 +220,13 @@ Submit triggers `POST /api/submit` with the assembled payload + the Cloudflare T
 
 **Auto-approve** (live as of 2026-05-08, **not "planned"** as some older docs claim):
 
-`tryAutoApprove(tx, entryId, ...)` in `src/lib/aggregate.ts:214-278`. Constants:
-
-```ts
-AUTO_APPROVE_BAND_PCT  = 30   // ±30% around role salary_median
-AUTO_APPROVE_MIN_COUNT = 3    // role must have >= 3 approved entries already
-```
+`tryAutoApprove(tx, entryId, ...)` in `src/lib/aggregate.ts:214-278`. Threshold constants intentionally redacted from the public mirror.
 
 Conditions (all must hold):
 1. The role exists (looked up by canonical name first, then alias).
-2. `role.entry_count >= 3`.
+2. The role has enough prior approved entries.
 3. `role.salary_median is not null`.
-4. `abs(submitted - median) / median * 100 <= 30`.
+4. The submission falls within the tolerance band of the median.
 
 If approved: flip `status = 'approved'`, write to `auto_approve_log` (entry_id, role_id, role_median_bdt, submitted_bdt, band_pct, auto_approved_at), recompute aggregates, all in the same transaction. Admin can revert from `/admin/auto-approved` (`docs/product/admin-moderation.md`).
 

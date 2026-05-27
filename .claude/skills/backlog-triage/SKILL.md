@@ -24,7 +24,7 @@ Pick from user input. Default to **add** if ambiguous.
 For each idea:
 
 1. **Restate** in one line so the user knows you got it.
-2. **Debate** - 2-4 pros, 2-4 cons, specific to *this* codebase: cold-start phase, mobile-first, >=5 hardgate (ADR-0004), no PII (ADR-0003), current Wave priorities in `tasks/open/001`-`004`.
+2. **Debate** - 2-4 pros, 2-4 cons, specific to *this* codebase: cold-start phase, mobile-first, minimum-sample hardgate (ADR-0004), no PII (ADR-0003), current Wave priorities in `tasks/open/001`-`004`.
 3. **Overlap check** - name any existing ticket this competes with, duplicates, or depends on. (Use `ls tasks/open/` and grep titles.)
 4. **Recommend** - *add as-is*, *add with modification*, *defer until X*, or *drop*. Pick one.
 5. **Wait** for user approval.
@@ -100,7 +100,7 @@ If an incoming idea would violate one of these, call it out and ask before addin
 - No emoji in production UI (rule 1)
 - No em dash in user-facing text (rule 2, ADR-0001)
 - No PII on `salary_entries` (rule 3, ADR-0003)
-- >=5 hardgate must hold (rule 4, ADR-0004)
+- minimum-sample hardgate must hold (rule 4, ADR-0004)
 - Idempotency + transactional aggregate recompute (rule 5)
 - `revalidatePath("/admin/queue")` synchronous (rule 6, ADR-0005)
 - DB pool config load-bearing (rule 7, ADR-0006)

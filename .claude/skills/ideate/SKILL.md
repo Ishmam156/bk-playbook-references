@@ -40,7 +40,7 @@ For each idea:
    - No emoji in production UI (rule 1)
    - No em dash in user-facing text (rule 2, ADR-0001)
    - No PII on `salary_entries` (rule 3, ADR-0003)
-   - >=5 hardgate must hold (rule 4, ADR-0004)
+   - minimum-sample hardgate must hold (rule 4, ADR-0004)
    - Idempotency + transactional aggregate recompute (rule 5)
    - `revalidatePath("/admin/queue")` synchronous (rule 6, ADR-0005)
    - DB pool config load-bearing (rule 7, ADR-0006)
@@ -159,10 +159,10 @@ Direct. Skeptical. Specific to this codebase. After debate: 8-15 lines max. The 
 ## Gotchas
 
 - **Don't write a ticket inside `/ideate`.** The value of this skill is the debate, not the artifact. Converting to a ticket happens via mode `commit` handing off to `/backlog-triage` - never edit `tasks/open/*.md` directly from this flow.
-- **Surface hard rules early in the debate, don't bury them.** The rules from `AGENTS.md` (no PII on `salary_entries`, >=5 hardgate, no Gemini in user request path, no em dash, single canonical English data form) are non-negotiable. If an idea brushes one, name the rule in the first pass - don't let the user fall in love with a proposal that will be killed at commit time.
+- **Surface hard rules early in the debate, don't bury them.** The rules from `AGENTS.md` (no PII on `salary_entries`, minimum-sample hardgate, no Gemini in user request path, no em dash, single canonical English data form) are non-negotiable. If an idea brushes one, name the rule in the first pass - don't let the user fall in love with a proposal that will be killed at commit time.
 - **Demos must follow the production rules too.** No emoji, no em dash, no purple, no Inter, no `system-ui` even in throwaway HTML at `out/ideate/*.html`. If the demo violates the rules, the user internalizes the violation and it leaks into the real implementation.
 - **Don't propose Gemini in the user request path.** Gemini is admin/offline only (classification, role mapping, spam audit). Any idea that calls Gemini from `/api/*` on a user request fails the architecture check immediately.
-- **Regex-based ideas for spam / dedup under-flag by 5x or more.** If the proposal is "regex out bros, tora, etc.", push back: LLM-as-judge with `gemini-2.5-pro` is the established pattern. "More probably will be - bros, or tora" is the canonical example of regex blindspots.
+- **Regex-based ideas for spam / dedup under-flag significantly.** If the proposal is "regex out bros, tora, etc.", push back: LLM-as-judge with `gemini-2.5-pro` is the established pattern. "More probably will be - bros, or tora" is the canonical example of regex blindspots.
 - **Overlap check is not optional.** Duplicate tickets are a real failure mode here; always grep `tasks/open/*.md` and `tasks/done/*.md` before recommending File.
 
 ## Related

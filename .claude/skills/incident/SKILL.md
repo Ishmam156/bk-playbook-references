@@ -25,7 +25,7 @@ When something is on fire, the failure mode is reaching for a hypothesis instead
 
 Before any diagnosis, ask one question: **is the site down (HTTP 5xx > 1%) or just slow (p95 latency >2s)?**
 
-Hit the homepage, a known company page, and the search API. Production has bot protection that 429s curl/wget, so use **Playwright** (`mcp__plugin_playwright_playwright__browser_navigate` + `browser_network_requests`) to capture status codes and timings:
+Hit the homepage, a known company page, and the search API. Use **Playwright** (`mcp__plugin_playwright_playwright__browser_navigate` + `browser_network_requests`) to capture status codes and timings:
 
 - `https://www.betonkemon.com/`
 - `https://www.betonkemon.com/en/c/aarong`
@@ -89,13 +89,13 @@ order by count desc;
 ```
 
 **Verdict rules:**
-- Lots of rows in `state = active, wait_event = ClientRead` -> **wedged backends.** This is a Supavisor-shaped failure (`docs/database.md`). The `cleanup-wedged-supavisor-backends` cron job should be terminating them every minute; if it isn't, that's your indictment.
+- Lots of rows in `state = active, wait_event = ClientRead` -> **wedged backends.** This is a Supavisor-shaped failure (`docs/database.md`). The `<wedged-cleanup-cron>` cron job should be terminating them every minute; if it isn't, that's your indictment.
 - Free pool < 10 of 21 expected -> **pool exhaustion likely.** Cross-check Vercel function timeouts in step 4.
 - Many `idle in transaction` -> a transaction is holding slots without doing work; usually an admin batch that hasn't committed. Check the `/admin/queue` UI.
 
 ```sql
 -- The wedge view directly:
-select count(*) from public.wedged_backend_log where terminated_at >= now() - interval '10 minutes';
+select count(*) from <wedged-log-table> where terminated_at >= now() - interval '10 minutes';
 ```
 
 If wedge count is rising, the cleanup job is doing its work but the upstream lambda population is generating wedges faster than it can clean up. That's an indictment of cache regression -> step 4 + 5.
@@ -110,7 +110,7 @@ Use the `/website-logs-10m` skill (multi-source: Vercel + Sentry + Supabase, par
 
 ### Step 5 - Supabase egress dashboard: throttling?
 
-<https://supabase.com/dashboard/project/hasfagvyjbchoprrwgaj/reports/database>
+<https://supabase.com/dashboard/project/<SUPABASE_PROJECT_REF>/reports/database>
 
 Egress overage triggers throttling that **looks identical** to pool exhaustion. Free tier 5GB/mo is easy to blow at >10K visitors/day; Pro lifts to 250GB.
 
@@ -206,7 +206,7 @@ Methodical. Step-by-step. The user is stressed; your value is the calm. Each ste
 ## Gotchas
 
 - **Vercel rollback is "Promote to Production" on the prior deployment, not `git revert`.** The fast path is the Vercel dashboard or `vercel promote <prev-deploy-url>` - reverting in git and waiting for a new build wastes the bleed-stop window.
-- **Don't `pg_terminate_backend` wedged Supavisor backends manually.** The `cleanup-wedged-supavisor-backends` `pg_cron` job runs every minute and logs to `public.wedged_backend_log`. Manual termination races the cron and obscures the rate of regeneration, which is the actual signal. Only intervene if the cron is paused.
+- **Don't `pg_terminate_backend` wedged Supavisor backends manually.** The `<wedged-cleanup-cron>` `pg_cron` job runs every minute and logs to `<wedged-log-table>`. Manual termination races the cron and obscures the rate of regeneration, which is the actual signal. Only intervene if the cron is paused.
 - **Report measured numbers, not impressions.** "Looks better now" is not a verdict. After rollback or mitigation, re-run step 1 (`pg_stat_statements`) and step 3 (`pg_stat_activity`) and quote the deltas. The user has explicitly asked agents to "be truthful and show me the reality."
 - **Don't close the incident on green logs alone.** Dev-verify the affected route in Playwright (homepage, `/c/<popular-slug>`, `/api/search?q=...`) before declaring resolved. Logs going quiet can also mean traffic dropped.
 - **Close the Playwright window when triage ends.** Any `browser_navigate` session for status-code capture or post-mitigation verification must end with `browser_close` before the postmortem is written.
